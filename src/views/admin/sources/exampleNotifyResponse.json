@@ -1,0 +1,27 @@
+{
+    "message": "Source availability processed successfully",
+    "actions_taken": {
+        "source_availability_recorded": true,
+        "job_executions_created": [
+            {
+                "job_id": 1,
+                "job_name": "data-processing-job",
+                "execution_id": 1,
+                "created": true
+            }
+        ],
+        "job_executions_ready": [
+            {
+                "job_id": 1,
+                "job_name": "data-processing-job",
+                "execution_id": 1
+            }
+        ],
+        "source_triggers_created": [
+            {
+                "job_execution_id": 1,
+                "source_availability_id": 16
+            }
+        ]
+    }
+}
