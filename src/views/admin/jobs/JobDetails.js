@@ -22,20 +22,31 @@ import {
   CNavLink,
   CTabContent,
   CTabPane,
+  CModal,
+  CModalHeader,
+  CModalTitle,
+  CModalBody,
+  CModalFooter,
+  CForm,
+  CFormCheck,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
   cilArrowLeft,
   cilPencil,
-  cilPlay,
+  cilMediaPlay,
   cilTrash,
   cilReload,
   cilClock,
   cilCheckCircle,
   cilXCircle,
   cilWarning,
+  cilLink,
+  cilLinkBroken,
+  cilPlus,
 } from '@coreui/icons'
 import { jobsApi } from '../../../api/jobs_api'
+import { sourcesApi } from '../../../api/sources_api'
 
 const JobDetails = () => {
   const navigate = useNavigate()
@@ -47,6 +58,11 @@ const JobDetails = () => {
   const [success, setSuccess] = useState('')
   const [activeTab, setActiveTab] = useState('details')
   const [executing, setExecuting] = useState(false)
+  const [allSources, setAllSources] = useState([])
+  const [jobSources, setJobSources] = useState([])
+  const [showSourceModal, setShowSourceModal] = useState(false)
+  const [selectedSources, setSelectedSources] = useState([])
+  const [sourcesLoading, setSourcesLoading] = useState(false)
 
   useEffect(() => {
     const loadJobData = async () => {
@@ -71,8 +87,19 @@ const JobDetails = () => {
       }
     }
 
+    const loadJobSources = async () => {
+      try {
+        const sourcesData = await jobsApi.getJobSources(id)
+        setJobSources(sourcesData)
+      } catch (err) {
+        console.error('Failed to load job sources:', err)
+        // Non-blocking error for job sources
+      }
+    }
+
     loadJobData()
     loadExecutions()
+    loadJobSources()
   }, [id])
 
   const loadExecutions = async () => {
@@ -116,10 +143,78 @@ const JobDetails = () => {
     }
   }
 
+  const loadAllSources = async () => {
+    try {
+      const sourcesData = await sourcesApi.getSources()
+      setAllSources(sourcesData)
+    } catch (err) {
+      console.error('Failed to load sources:', err)
+      setAllSources([])
+    }
+  }
+
+  const handleManageSources = async () => {
+    setSourcesLoading(true)
+    await loadAllSources()
+    
+    // Pre-select currently associated sources
+    const currentSourceIds = job.sources?.map(s => s.id) || []
+    setSelectedSources(currentSourceIds)
+    setShowSourceModal(true)
+    setSourcesLoading(false)
+  }
+
+  const handleSourceToggle = (sourceId) => {
+    setSelectedSources(prev => 
+      prev.includes(sourceId) 
+        ? prev.filter(id => id !== sourceId)
+        : [...prev, sourceId]
+    )
+  }
+
+  const handleSaveSourceAssociations = async () => {
+    try {
+      setSourcesLoading(true)
+      setError('')
+      
+      await jobsApi.associateSourcesToJob(id, selectedSources)
+      
+      // Reload job sources to get updated list
+      const sourcesData = await jobsApi.getJobSources(id)
+      setJobSources(sourcesData)
+      
+      setSuccess('Source associations updated successfully!')
+      setShowSourceModal(false)
+    } catch (err) {
+      setError('Failed to update source associations: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setSourcesLoading(false)
+    }
+  }
+
+  const handleRemoveSource = async (sourceId) => {
+    if (window.confirm('Are you sure you want to remove this source association?')) {
+      try {
+        const currentSourceIds = job.sources?.map(s => s.id) || []
+        const newSourceIds = currentSourceIds.filter(id => id !== sourceId)
+        
+        await jobsApi.associateSourcesToJob(id, newSourceIds)
+        
+        // Reload job data
+        const jobData = await jobsApi.getJobById(id)
+        setJob(jobData)
+        
+        setSuccess('Source association removed successfully!')
+      } catch (err) {
+        setError('Failed to remove source association: ' + (err.response?.data?.detail || err.message))
+      }
+    }
+  }
+
   const getStatusBadge = (status) => {
     const statusMap = {
       pending: { color: 'warning', icon: cilClock },
-      running: { color: 'info', icon: cilPlay },
+      running: { color: 'info', icon: cilMediaPlay },
       completed: { color: 'success', icon: cilCheckCircle },
       failed: { color: 'danger', icon: cilXCircle },
       cancelled: { color: 'secondary', icon: cilXCircle },
@@ -189,7 +284,7 @@ const JobDetails = () => {
                 {executing ? (
                   <CSpinner size="sm" className="me-2" />
                 ) : (
-                  <CIcon icon={cilPlay} className="me-2" />
+                  <CIcon icon={cilMediaPlay} className="me-2" />
                 )}
                 Execute Now
               </CButton>
@@ -240,6 +335,15 @@ const JobDetails = () => {
                   style={{ cursor: 'pointer' }}
                 >
                   Job Details
+                </CNavLink>
+              </CNavItem>
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === 'sources'}
+                  onClick={() => setActiveTab('sources')}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Sources ({job.sources?.length || 0})
                 </CNavLink>
               </CNavItem>
               <CNavItem>
@@ -409,9 +513,137 @@ const JobDetails = () => {
                   </CTable>
                 )}
               </CTabPane>
+
+              <CTabPane visible={activeTab === 'sources'}>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5>Associated Sources</h5>
+                  <CButton
+                    color="primary"
+                    size="sm"
+                    onClick={handleManageSources}
+                    disabled={sourcesLoading}
+                  >
+                    <CIcon icon={cilPlus} className="me-1" />
+                    Manage Sources
+                  </CButton>
+                </div>
+
+                {jobSources.length > 0 ? (
+                  <CTable hover responsive>
+                    <CTableHead>
+                      <CTableRow color="light">
+                        <CTableHeaderCell>Source Name</CTableHeaderCell>
+                        <CTableHeaderCell>Type</CTableHeaderCell>
+                        <CTableHeaderCell>Status</CTableHeaderCell>
+                        <CTableHeaderCell>Actions</CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {jobSources.map((source) => (
+                        <CTableRow key={source.id}>
+                          <CTableDataCell>
+                            <strong>{source.name}</strong>
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <CBadge color={source.source_type === 'database' ? 'info' : 'secondary'}>
+                              {source.source_type}
+                            </CBadge>
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <CBadge color={source.status === 'active' ? 'success' : 'danger'}>
+                              {source.status}
+                            </CBadge>
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <CButton
+                              color="danger"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSourceToggle(source.id, false)}
+                              title="Remove association"
+                            >
+                              <CIcon icon={cilLinkBroken} />
+                            </CButton>
+                          </CTableDataCell>
+                        </CTableRow>
+                      ))}
+                    </CTableBody>
+                  </CTable>
+                ) : (
+                  <CAlert color="info">
+                    <CIcon icon={cilLink} className="me-2" />
+                    No sources are currently associated with this job. Click "Manage Sources" to add associations.
+                  </CAlert>
+                )}
+              </CTabPane>
             </CTabContent>
           </CCardBody>
         </CCard>
+      </CCol>
+
+      {/* Source Management Modal */}
+      <CCol xs={12}>
+    <CModal visible={showSourceModal} onClose={() => setShowSourceModal(false)} size="lg">
+      <CModalHeader>
+        <CModalTitle>Manage Job Sources</CModalTitle>
+      </CModalHeader>
+      <CModalBody>
+        <div className="mb-3">
+          <p className="text-muted">
+            Select sources to associate with this job. Sources can be linked or unlinked as needed.
+          </p>
+        </div>
+
+        {sourcesLoading ? (
+          <div className="text-center py-4">
+            <div className="spinner-border" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        ) : (
+          <CForm>
+            {allSources.map((source) => (
+              <CFormCheck
+                key={source.id}
+                id={`source-${source.id}`}
+                label={
+                  <div className="d-flex justify-content-between align-items-center w-100">
+                    <div>
+                      <strong>{source.name}</strong>
+                      <div className="text-muted small">
+                        Type: {source.source_type} | Status: {source.status}
+                      </div>
+                    </div>
+                    <CBadge 
+                      color={selectedSources.includes(source.id) ? 'success' : 'secondary'}
+                    >
+                      {selectedSources.includes(source.id) ? 'Linked' : 'Available'}
+                    </CBadge>
+                  </div>
+                }
+                checked={selectedSources.includes(source.id)}
+                onChange={(e) => handleSourceToggle(source.id, e.target.checked)}
+              />
+            ))}
+          </CForm>
+        )}
+      </CModalBody>
+      <CModalFooter>
+        <CButton 
+          color="secondary" 
+          onClick={() => setShowSourceModal(false)}
+        >
+          Cancel
+        </CButton>
+        <CButton 
+          color="primary" 
+          onClick={handleSaveSourceAssociations}
+          disabled={sourcesLoading}
+        >
+          Save Changes
+        </CButton>
+      </CModalFooter>
+    </CModal>
       </CCol>
     </CRow>
   )

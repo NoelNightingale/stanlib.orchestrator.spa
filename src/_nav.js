@@ -16,6 +16,8 @@ import {
   cilCalculator,
   cilExternalLink,
   cilDataTransferDown,
+  cilInput,
+  cilApplications,
 } from "@coreui/icons"
 
 import { CNavGroup, CNavItem, CNavTitle } from "@coreui/react"
@@ -48,6 +50,26 @@ const _nav = [
     name: 'Configuration'
   },
   {
+      component: CNavGroup,
+      name: 'Admin',
+      to: '/base',
+      icon: <CIcon icon={cilPuzzle} customClassName="nav-icon" />,
+      items: [
+        {
+          component: CNavItem,
+          name: 'Jobs',
+          to: '/admin/jobs',
+          icon: <CIcon icon={cilApplications} customClassName="nav-icon" />,
+        },
+        {
+          component: CNavItem,
+          name: 'Sources',
+          to: '/admin/sources',
+          icon: <CIcon icon={cilInput} customClassName="nav-icon" />,
+        },        
+      ]
+  },
+/*  {
     component: CNavTitle,
     name: 'Theme',
   },
@@ -66,8 +88,8 @@ const _nav = [
   {
     component: CNavTitle,
     name: 'Components',
-  },
-    {
+  }, */
+/*    {
       component: CNavGroup,
       name: 'Admin',
       to: '/base',
@@ -209,7 +231,7 @@ const _nav = [
           component: CNavItem,
           name: 'Sources',
           to: '/admin/sources',
-          icon: <CIcon icon={cilDataTransferDown} customClassName="nav-icon" />,
+          icon: <CIcon icon={cilInput} customClassName="nav-icon" />,
         },
         {
           component: CNavItem,
@@ -446,24 +468,7 @@ const _nav = [
       color: 'info',
       text: 'NEW',
     },
-  },
-  {
-    component: CNavTitle,
-    name: 'Extras',
-  }, 
-  {
-    component: CNavGroup,
-    name: '<dev/>',
-    icon: <CIcon icon={cilStar} customClassName="nav-icon" />,
-    items: [
-      {
-        component: CNavItem,
-        name: 'API Spec',
-        href: 'https://coreui.io/react/docs/templates/installation/',
-        icon: <CIcon icon={cilDescription} customClassName="nav-icon" />,
-      }
-    ],
-  },
+  }, */
 ]
 
 export default _nav

@@ -59,6 +59,17 @@ export const jobsApi = {
     }
   },
 
+  // Get sources associated with a job
+  getJobSources: async (jobId) => {
+    try {
+      const response = await api.get(`/jobs/${jobId}/sources`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching sources for job ${jobId}:`, error);
+      throw error;
+    }
+  },
+
   // Associate sources to job
   associateSourcesToJob: async (jobId, sourceIds) => {
     try {
